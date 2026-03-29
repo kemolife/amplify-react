@@ -10,6 +10,7 @@ import {
   Image,
   Grid,
   Divider,
+  Badge,
 } from "@aws-amplify/ui-react";
 import { Amplify } from "aws-amplify";
 import "@aws-amplify/ui-react/styles.css";
@@ -29,6 +30,7 @@ const client = generateClient({
 
 export default function App() {
   const [notes, setNotes] = useState([]);
+  const [editingNote, setEditingNote] = useState(null);
 
   useEffect(() => {
     fetchNotes();
@@ -42,49 +44,43 @@ export default function App() {
           const linkToStorageFile = await getUrl({
             path: ({ identityId }) => `media/${identityId}/${note.image}`,
           });
-          console.log(linkToStorageFile.url);
           note.image = linkToStorageFile.url;
         }
         return note;
       })
     );
-    console.log(notes);
     setNotes(notes);
   }
 
   async function createNote(event) {
     event.preventDefault();
     const form = new FormData(event.target);
-    console.log(form.get("image").name);
 
     const { data: newNote } = await client.models.Note.create({
       name: form.get("name"),
       description: form.get("description"),
       image: form.get("image").name,
+      group: form.get("group") || null,
     });
 
-    console.log(newNote);
     if (newNote.image)
-      if (newNote.image)
-        await uploadData({
-          path: ({ identityId }) => `media/${identityId}/${newNote.image}`,
-          data: form.get("image"),
-        }).result;
+      await uploadData({
+        path: ({ identityId }) => `media/${identityId}/${newNote.image}`,
+        data: form.get("image"),
+      }).result;
 
     fetchNotes();
     event.target.reset();
   }
 
+  async function updateNoteGroup(note, group) {
+    await client.models.Note.update({ id: note.id, group: group || null });
+    fetchNotes();
+    setEditingNote(null);
+  }
+
   async function deleteNote({ id }) {
-    const toBeDeletedNote = {
-      id: id,
-    };
-
-    const { data: deletedNote } = await client.models.Note.delete(
-      toBeDeletedNote
-    );
-    console.log(deletedNote);
-
+    await client.models.Note.delete({ id });
     fetchNotes();
   }
 
@@ -122,6 +118,13 @@ export default function App() {
                 labelHidden
                 variation="quiet"
                 required
+              />
+              <TextField
+                name="group"
+                placeholder="Group (optional)"
+                label="Group"
+                labelHidden
+                variation="quiet"
               />
               <View
                 name="image"
@@ -161,10 +164,60 @@ export default function App() {
                   <Heading level="3">{note.name}</Heading>
                 </View>
                 <Text fontStyle="italic">{note.description}</Text>
+
+                {editingNote === note.id ? (
+                  <Flex
+                    as="form"
+                    direction="row"
+                    alignItems="center"
+                    gap="0.5rem"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const form = new FormData(e.target);
+                      updateNoteGroup(note, form.get("group"));
+                    }}
+                  >
+                    <TextField
+                      name="group"
+                      defaultValue={note.group || ""}
+                      placeholder="Group name"
+                      label="Group"
+                      labelHidden
+                      variation="quiet"
+                      size="small"
+                    />
+                    <Button type="submit" size="small" variation="primary">
+                      Save
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => setEditingNote(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </Flex>
+                ) : (
+                  <Flex direction="row" alignItems="center" gap="0.5rem">
+                    {note.group ? (
+                      <Badge variation="info">{note.group}</Badge>
+                    ) : (
+                      <Text color="grey" fontSize="small">
+                        No group
+                      </Text>
+                    )}
+                    <Button
+                      size="small"
+                      onClick={() => setEditingNote(note.id)}
+                    >
+                      {note.group ? "Edit Group" : "Add Group"}
+                    </Button>
+                  </Flex>
+                )}
+
                 {note.image && (
                   <Image
                     src={note.image}
-                    alt={`visual aid for ${notes.name}`}
+                    alt={`visual aid for ${note.name}`}
                     style={{ width: 400 }}
                   />
                 )}
