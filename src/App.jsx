@@ -17,6 +17,7 @@ import { getUrl } from "aws-amplify/storage";
 import { uploadData } from "aws-amplify/storage";
 import { generateClient } from "aws-amplify/data";
 import outputs from "../amplify_outputs.json";
+import Comments from "./components/Comments";
 
 /**
  * @type {import('aws-amplify/data').Client<import('../amplify/data/resource').Schema>}
@@ -174,6 +175,7 @@ export default function App() {
                 >
                   Delete note
                 </Button>
+                <Comments noteId={note.id} />
               </Flex>
             ))}
           </Grid>
